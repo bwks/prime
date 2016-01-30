@@ -29,7 +29,65 @@ class Prime(object):
             requests.packages.urllib3.disable_warnings()
 
     def get_devices(self):
-
+        """
+        Get all devices
+        :return: result dictionary
+        """
         self.pi.headers.update({'Accept': 'application/json'})
 
-        return self.pi.get('{0}/Devices'.format(self.url_base))
+        result = {
+            'success': False,
+            'response': '',
+            'error': '',
+        }
+
+        resp = self.pi.get('{0}/Devices'.format(self.url_base))
+
+        if resp.status_code == 200:
+            result['success'] = True
+            result['response'] = [i['$'] for i in resp.json()['queryResponse']['entityId']]
+            return result
+        else:
+            result['response'] = 'Error'
+            result['error'] = resp.status_code
+            return result
+
+    def get_device(self, ip_address):
+        """
+        Get device details
+        :param ip_address: Device IP address
+        :return: Result dictionary
+        """
+        self.pi.headers.update({'Accept': 'application/json'})
+
+        result = {
+            'success': False,
+            'response': '',
+            'error': '',
+        }
+
+        resp = self.pi.get('{0}/Devices?ipAddress="{1}"'.format(self.url_base, ip_address))
+
+        if resp.status_code == 200 and resp.json()['queryResponse']['@count'] == '1':
+            dev_id = resp.json()['queryResponse']['entityId'][0]['$']
+            resp = self.pi.get('{0}/Devices/{1}'.format(self.url_base, dev_id))
+            if resp.status_code == 200:
+                result['success'] = True
+                result['response'] = resp.json()
+                return result
+            elif resp.status_code == 404:
+                result['response'] = '{0} not found'.format(dev_id)
+                result['error'] = resp.status_code
+                return result
+            else:
+                result['response'] = resp.text
+                result['error'] = resp.status_code
+                return result
+        elif resp.status_code == 200 and resp.json()['queryResponse']['@count'] == '0':
+            result['response'] = '{0} not found'.format(ip_address)
+            result['error'] = resp.status_code
+            return result
+        else:
+            result['response'] = resp.text
+            result['error'] = resp.status_code
+            return result
